@@ -20,7 +20,28 @@ def fetch_dataset(data_name):
     dataset = {}
     print('fetching data {}...'.format(data_name))
     root = './data/{}'.format(data_name)
-    if data_name in ['MNIST', 'FashionMNIST']:
+    if data_name == 'PACS':
+        transform = datasets.Compose([
+            transforms.Resize((224, 224)),
+            transforms.ToTensor(),
+            transforms.Normalize(*data_stats[data_name])
+        ])
+        
+        full_dataset = ImageFolder(root=root, transform=transform)
+        
+        # Indices for each domain
+        art_painting_indices = [i for i, (_, label) in enumerate(full_dataset) if full_dataset.classes[label] == 'art_painting']
+        cartoon_indices = [i for i, (_, label) in enumerate(full_dataset) if full_dataset.classes[label] == 'cartoon']
+        photo_indices = [i for i, (_, label) in enumerate(full_dataset) if full_dataset.classes[label] == 'photo']
+        sketch_indices = [i for i, (_, label) in enumerate(full_dataset) if full_dataset.classes[label] == 'sketch']
+        
+        # Distribute data
+        dataset['server'] = Subset(full_dataset, art_painting_indices)
+        dataset['client1'] = Subset(full_dataset, cartoon_indices)
+        dataset['client2'] = Subset(full_dataset, photo_indices)
+        dataset['test'] = Subset(full_dataset, sketch_indices)
+        
+    elif data_name in ['MNIST', 'FashionMNIST']:
         dataset['train'] = eval('datasets.{}(root=root, split=\'train\', '
                                 'transform=datasets.Compose([transforms.ToTensor()]))'.format(data_name))
         dataset['test'] = eval('datasets.{}(root=root, split=\'test\', '
@@ -119,6 +140,27 @@ def split_dataset(dataset, num_users, data_split_mode):
         raise ValueError('Not valid data split mode')
     return data_split
 
+def pacs(dataset, num_users):
+    """
+    PACS-specific data splitting.
+    """
+    data_split = {}
+    # Create a list to hold all the data indices from different domains
+    all_indices = []
+    for domain in ['art_painting', 'cartoon', 'photo', 'sketch']:
+        all_indices.extend([(domain, i) for i in range(len(dataset[domain]))])
+    
+    # Shuffle and split the indices
+    num_items = int(len(all_indices) / num_users)
+    shuffled_indices = torch.randperm(len(all_indices)).tolist()
+    
+    for i in range(num_users):
+        num_items_i = min(len(shuffled_indices), num_items)
+        data_split[i] = [all_indices[idx] for idx in shuffled_indices[:num_items_i]]
+        shuffled_indices = shuffled_indices[num_items_i:]
+    
+    return data_split
+    
 
 def iid(dataset, num_users):
     num_items = int(len(dataset) / num_users)
