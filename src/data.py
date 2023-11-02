@@ -19,7 +19,8 @@ def fetch_dataset(data_name):
     import datasets
     dataset = {}
     print('fetching data {}...'.format(data_name))
-    root = './data/{}'.format(data_name)
+    #root = './data/{}'.format(data_name)
+    root = '/home/sahmed9/codes/SemiDGFL/data/PACS'
     if data_name == 'PACS':
         transform = datasets.Compose([
             transforms.Resize((224, 224)),
