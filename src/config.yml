@@ -3,16 +3,16 @@
 control:
   num_supervised: '4000'
   loss_mode: 'fix@0.95-mix'
-  num_clients: '100'
+  num_clients: '2'
   active_rate: '0.1'
-  data_split_mode: 'iid'
+  data_split_mode: 'pacs'
   local_epoch: '5-5'
   gm: '0.5'
-  sbn: '1'
+  sbn: '0'
   ft: '1'
 # data
-data_name: CIFAR10
-model_name: wresnet28x2
+data_name: PACS
+model_name: resnet18
 # experiment
 num_workers: 0
 init_seed: 0

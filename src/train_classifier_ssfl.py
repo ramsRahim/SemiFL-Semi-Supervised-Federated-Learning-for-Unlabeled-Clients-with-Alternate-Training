@@ -39,11 +39,22 @@ def runExperiment():
     cfg['seed'] = int(cfg['model_tag'].split('_')[0])
     torch.manual_seed(cfg['seed'])
     torch.cuda.manual_seed(cfg['seed'])
+    
     server_dataset = fetch_dataset(cfg['data_name'])
     client_dataset = fetch_dataset(cfg['data_name'])
-    process_dataset(server_dataset)
-    server_dataset['train'], client_dataset['train'], supervised_idx = separate_dataset_su(server_dataset['train'],
-                                                                                           client_dataset['train'])
+    
+    ## for PACS dataset we can comment out this line and these few lines below
+    #process_dataset(server_dataset)
+    server_dataset['train'] = server_dataset['server_train']
+    server_dataset['test'] = server_dataset['server_test']
+    
+    #client_dataset['train'] = client_dataset['client_train']
+    
+    server_dataset.pop('server_train')
+    server_dataset.pop('server_test')
+    #client_dataset['train'] = client_dataset['client1']
+    #server_dataset['train'], client_dataset['train'], supervised_idx = separate_dataset_su(server_dataset['train'],
+    #                                                                                          client_dataset['train'])
     data_loader = make_data_loader(server_dataset, 'global')
     model = eval('models.{}().to(cfg["device"])'.format(cfg['model_name']))
     optimizer = make_optimizer(model.parameters(), 'local')

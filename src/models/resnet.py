@@ -3,11 +3,11 @@ import torch.nn as nn
 import torch.nn.functional as F
 from .utils import init_param, make_batchnorm, loss_fn
 from config import cfg
-
+from torchvision import models
 
 class Block(nn.Module):
     expansion = 1
-
+ 
     def __init__(self, in_planes, planes, stride):
         super(Block, self).__init__()
         self.n1 = nn.BatchNorm2d(in_planes)
@@ -114,11 +114,23 @@ def resnet9(momentum=None, track=False):
     return model
 
 
-def resnet18(momentum=None, track=False):
+""" def resnet18(momentum=None, track=False):
     data_shape = cfg['data_shape']
     target_size = cfg['target_size']
     hidden_size = cfg['resnet18']['hidden_size']
     model = ResNet(data_shape, hidden_size, Block, [2, 2, 2, 2], target_size)
     model.apply(init_param)
     model.apply(lambda m: make_batchnorm(m, momentum=momentum, track_running_stats=track))
-    return model
+    return model """
+    
+def resnet18(momentum=None, track=False):
+    z_dim = 1024
+    num_classes = 7
+    # Feature extractor 
+    self.net = models.resnet18(pretrained=True)
+    self.net.fc = nn.Linear(net.fc.in_features,out_dim)
+    # classifier
+    self.cls = nn.Linear(args.z_dim,args.num_classes)
+    # model
+    model = nn.Sequential(self.net,self.cls)
+    return  model

@@ -117,7 +117,7 @@ def process_control():
         cfg['control']['num_supervised'] = '-1'
     cfg['num_supervised'] = int(cfg['control']['num_supervised'])
     data_shape = {'MNIST': [1, 28, 28], 'FashionMNIST': [1, 28, 28], 'CIFAR10': [3, 32, 32], 'CIFAR100': [3, 32, 32],
-                  'SVHN': [3, 32, 32]}
+                  'SVHN': [3, 32, 32],'PACS' : [3, 224, 224]}
     cfg['data_shape'] = data_shape[cfg['data_name']]
     cfg['conv'] = {'hidden_size': [32, 64]}
     cfg['resnet9'] = {'hidden_size': [64, 128, 256, 512]}
@@ -158,6 +158,7 @@ def process_control():
         cfg['local']['weight_decay'] = 5e-4
         cfg['local']['nesterov'] = True
         cfg['global'] = {}
+        cfg['global']['batch_size'] = {'train': 250, 'test': 250}
         cfg['global']['batch_size'] = {'train': 250, 'test': 250}
         cfg['global']['shuffle'] = {'train': True, 'test': False}
         cfg['global']['num_epochs'] = 800

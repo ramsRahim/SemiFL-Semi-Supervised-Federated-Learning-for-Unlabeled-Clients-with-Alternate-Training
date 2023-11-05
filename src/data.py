@@ -3,24 +3,28 @@ import torch
 import numpy as np
 import models
 from config import cfg
-from torchvision import transforms
+from torchvision import transforms, datasets
 from torch.utils.data import DataLoader, Dataset
 from torch.utils.data.dataloader import default_collate
 from utils import collate, to_device
+from torchvision.datasets import ImageFolder
+from torch.utils.data import Subset
+
 
 data_stats = {'MNIST': ((0.1307,), (0.3081,)), 'FashionMNIST': ((0.2860,), (0.3530,)),
               'CIFAR10': ((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
               'CIFAR100': ((0.5071, 0.4865, 0.4409), (0.2673, 0.2564, 0.2762)),
               'SVHN': ((0.4377, 0.4438, 0.4728), (0.1980, 0.2010, 0.1970)),
-              'STL10': ((0.4409, 0.4279, 0.3868), (0.2683, 0.2610, 0.2687))}
+              'STL10': ((0.4409, 0.4279, 0.3868), (0.2683, 0.2610, 0.2687)),
+              'PACS': ((0.485, 0.456, 0.406), (0.230, 0.228, 0.225))}
 
 
 def fetch_dataset(data_name):
     import datasets
     dataset = {}
     print('fetching data {}...'.format(data_name))
-    #root = './data/{}'.format(data_name)
-    root = '/home/sahmed9/codes/SemiDGFL/data/PACS'
+    root = './data/{}'.format(data_name)
+    #root = '/home/sahmed9/codes/SemiDGFL/data/PACS'
     if data_name == 'PACS':
         transform = datasets.Compose([
             transforms.Resize((224, 224)),
@@ -29,15 +33,23 @@ def fetch_dataset(data_name):
         ])
         
         full_dataset = ImageFolder(root=root, transform=transform)
+        temp_dataset = ImageFolder(root=root)
         
         # Indices for each domain
-        art_painting_indices = [i for i, (_, label) in enumerate(full_dataset) if full_dataset.classes[label] == 'art_painting']
-        cartoon_indices = [i for i, (_, label) in enumerate(full_dataset) if full_dataset.classes[label] == 'cartoon']
-        photo_indices = [i for i, (_, label) in enumerate(full_dataset) if full_dataset.classes[label] == 'photo']
-        sketch_indices = [i for i, (_, label) in enumerate(full_dataset) if full_dataset.classes[label] == 'sketch']
+        art_painting_indices = [i for i, sample in enumerate(temp_dataset) if temp_dataset.classes[sample[1]] == 'art_painting']
+        cartoon_indices = [i for i, sample in enumerate(temp_dataset) if temp_dataset.classes[sample[1]] == 'cartoon']
+        photo_indices = [i for i, sample in enumerate(temp_dataset) if temp_dataset.classes[sample[1]] == 'photo']
+        sketch_indices = [i for i, sample in enumerate(temp_dataset) if temp_dataset.classes[sample[1]] == 'sketch']
+
+        
+        # Splitting the art_painting domain into train and test for the server
+        train_size = int(0.8 * len(art_painting_indices))
+        server_train_indices = art_painting_indices[:train_size]
+        server_test_indices = art_painting_indices[train_size:]
         
         # Distribute data
-        dataset['server'] = Subset(full_dataset, art_painting_indices)
+        dataset['server_train'] = Subset(full_dataset, server_train_indices)
+        dataset['server_test'] = Subset(full_dataset, server_test_indices)
         dataset['client1'] = Subset(full_dataset, cartoon_indices)
         dataset['client2'] = Subset(full_dataset, photo_indices)
         dataset['test'] = Subset(full_dataset, sketch_indices)
@@ -111,6 +123,7 @@ def input_collate(batch):
 def make_data_loader(dataset, tag, batch_size=None, shuffle=None, sampler=None, batch_sampler=None):
     data_loader = {}
     for k in dataset:
+        print(cfg[tag])
         _batch_size = cfg[tag]['batch_size'][k] if batch_size is None else batch_size[k]
         _shuffle = cfg[tag]['shuffle'][k] if shuffle is None else shuffle[k]
         if sampler is not None:
@@ -137,28 +150,20 @@ def split_dataset(dataset, num_users, data_split_mode):
     elif 'non-iid' in cfg['data_split_mode']:
         data_split['train'] = non_iid(dataset['train'], num_users)
         data_split['test'] = non_iid(dataset['test'], num_users)
+    elif 'pacs' in cfg['data_split_mode']:
+        data_split['train'] = pacs(dataset['train'])
     else:
         raise ValueError('Not valid data split mode')
     return data_split
 
-def pacs(dataset, num_users):
+def pacs(dataset, num_users=2):
     """
     PACS-specific data splitting.
     """
     data_split = {}
     # Create a list to hold all the data indices from different domains
-    all_indices = []
-    for domain in ['art_painting', 'cartoon', 'photo', 'sketch']:
-        all_indices.extend([(domain, i) for i in range(len(dataset[domain]))])
-    
-    # Shuffle and split the indices
-    num_items = int(len(all_indices) / num_users)
-    shuffled_indices = torch.randperm(len(all_indices)).tolist()
-    
-    for i in range(num_users):
-        num_items_i = min(len(shuffled_indices), num_items)
-        data_split[i] = [all_indices[idx] for idx in shuffled_indices[:num_items_i]]
-        shuffled_indices = shuffled_indices[num_items_i:]
+    data_split[0] = dataset['client1']
+    data_split[1] = dataset['client2']
     
     return data_split
     
